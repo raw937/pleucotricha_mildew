@@ -7,7 +7,8 @@ This is the code and analysis for this article.
 Journal Article is: Lederson Gañán , Richard Allen White III, Maren L. Friesen, Tobin L. Peever, Achour Amiri
 **Analysis**
 
-This repo holds scripts to process data. Outputs are included as well in this repo. 
+This repo holds scripts to process data. 
+Raw data, outputs etc are on OSF repo [repo](https://osf.io/reh8b/)
 
 **Data**
 
