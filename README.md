@@ -8,7 +8,7 @@ Journal Article is: Lederson Gañán , Richard Allen White III, Maren L. Friesen
 **Analysis**
 
 This repo holds scripts to process data. 
-Raw data, outputs etc are on OSF repo [repo](https://osf.io/reh8b/)
+Raw data, outputs etc are on OSF [repo](https://osf.io/reh8b/)
 
 **Data**
 
