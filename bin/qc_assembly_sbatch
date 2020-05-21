@@ -1,0 +1,96 @@
+#!/bin/bash
+
+#Written RAWIII
+#Feb 21th, 2019
+
+#SBATCH --partition=peters		 	        ### Partition 
+#SBATCH --job-name=leuco   	         	### Job Name
+#SBATCH --output=leuco_200221_out2.txt       	### File in which to store job output
+#SBATCH --error=leuco_200221_err2.txt        	### File in which to store job error messages
+#SBATCH --time=1-0:00:00       		       	        ### Wall clock time limit in Days-HH:MM:SS
+#SBATCH --cpus-per-task=28
+#SBATCH --mem=0
+
+#load modules
+module load bowtie2/2.3.4
+module load samtools/1.6
+
+#bowtie dtb
+bowtie2-build rmfile.fa rmfile_db
+bowtie2-build bac_crapome.fa bac_crapome_db
+
+#map 1st local
+bowtie2 -p 28 -x bac_crapome_db -1 leuco_all_decon_4th_R1.fastq.gz -2 leuco_all_decon_4th_R2.fastq.gz -S leuco_all_decon_1st.sam --very-sensitive-local
+
+#get unmapped 1st round
+samtools view -S -f 4 leuco_all_decon_1st.sam > leuco_all_decon_unmapped_1st.sam
+
+#convert sam to fastq
+reformat.sh in=leuco_all_decon_unmapped_1st.sam out=leuco_all_decon_unmapped_1st.fastq
+
+#gzip
+gzip leuco_all_decon_unmapped_1st.fastq
+
+#map 2nd local
+bowtie2 -p 28 -x bac_crapome_db -q leuco_all_decon_unmapped_1st.fastq.gz -S leuco_all_decon_2nd.sam --very-sensitive-local
+
+#get unmapped 2nd round
+samtools view -S -f 4 leuco_all_decon_2nd.sam > leuco_all_decon_unmapped_2nd.sam
+
+#convert sam to fastq
+reformat.sh in=leuco_all_decon_unmapped_2nd.sam out=leuco_all_decon_unmapped_2nd.fastq
+
+#gzip
+gzip leuco_all_decon_unmapped_2nd.fastq
+
+#map 1st global
+bowtie2 -p 28 -x bac_crapome_db -q leuco_all_decon_unmapped_2nd.fastq.gz -S leuco_all_decon_global_1st.sam --very-sensitive 
+
+#get unmapped 1st round global
+samtools view -S -f 4 leuco_all_decon_global_1st.sam > leuco_all_decon_global_unmapped_1st.sam
+
+#convert sam to fastq global
+reformat.sh in=leuco_all_decon_global_unmapped_1st.sam out=leuco_all_decon_global_unmapped_1st.fastq
+
+#gzip
+gzip leuco_all_decon_global_unmapped_1st.fastq
+
+#map 2nd global
+bowtie2 -p 28 -x bac_crapome_db -q leuco_all_decon_global_unmapped_1st.fastq.gz -S leuco_all_decon_global_2nd.sam --very-sensitive 
+
+#get unmapped 1st round global
+samtools view -S -f 4 leuco_all_decon_global_2nd.sam > leuco_all_decon_global_unmapped_2nd.sam
+
+#convert sam to fastq global
+reformat.sh in=leuco_all_decon_global_unmapped_2nd.sam out=leuco_all_decon_8th.fastq
+
+#gzip
+gzip leuco_all_decon_8th.fastq
+
+#check pairing
+reformat.sh in=leuco_all_decon_8th.fastq.gz verifypairing
+
+#get pairs
+reformat.sh in=leuco_all_decon_8th.fastq.gz out1=leuco_all_decon_8th_R1.fastq.gz out2=leuco_all_decon_8th_R2.fastq.gz
+
+#map confirm 
+bowtie2 -p 28 -x bac_crapome_db -1 leuco_all_decon_8th_R1.fastq.gz -2 leuco_all_decon_8th_R2.fastq.gz -S leuco_all_decon_local_confirm.sam --very-sensitive-local
+bowtie2 -p 28 -x bac_crapome_db -1 leuco_all_decon_4th_R1.fastq.gz -2 leuco_all_decon_8th_R2.fastq.gz -S leuco_all_decon_global_confirm.sam --very-sensitive
+bowtie2 -p 28 -x rmfile_db -1 leuco_all_decon_8th_R1.fastq.gz -2 leuco_all_decon_8th_R2.fastq.gz -S leuco_all_decon_local_confirm2.sam --very-sensitive-local
+bowtie2 -p 28 -x rmfile_db -1 leuco_all_decon_8th_R1.fastq.gz -2 leuco_all_decon_8th_R2.fastq.gz -S leuco_all_decon_global_confirm2.sam --very-sensitive
+bowtie2 -p 28 -x bac_crapome_db -q leuco_all_decon_8th.fastq.gz -S leuco_all_decon_local_confirm.sam --very-sensitive-local
+bowtie2 -p 28 -x bac_crapome_db -q leuco_all_decon_8th.fastq.gz -S leuco_all_decon_global_confirm.sam --very-sensitive
+
+#count
+zcat leuco_all_decon_8th_R1.fastq.gz | echo $((`wc -l`/4))
+zcat leuco_all_decon_8th_R2.fastq.gz | echo $((`wc -l`/4))
+
+#fastq pair
+fastq_pair leuco_all_decon_8th_R1.fastq.gz leuco_all_decon_8th_R1.fastq.gz
+
+#load modules 2
+module load miniconda3
+source activate /opt/apps/conda/envs/megahit
+
+#run assembly
+megahit -m 0.99 -l 350 -1 leuco_all_decon_8th_R1.fastq.gz -2 leuco_all_decon_8th_R2.fastq.gz --k-min 21 --k-max 121 --out-dir leuco_megahit_decon_8th-paired_dir
